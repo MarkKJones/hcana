@@ -45,8 +45,6 @@ THcDC::THcDC(
 
   fNPlanes = 0;			// No planes until we make them
 
-  fHits_best = new TClonesArray("THcDCHit",100);
-  fHits_best = NULL;
   fXCenter = NULL;
   fYCenter = NULL;
   fMinHits = NULL;
@@ -417,9 +415,12 @@ Int_t THcDC::DefineVariables( EMode mode )
     { "sp2_id", " (golden track) ", "fSp2_ID_best"},
     { "gtrack_nsp", " Number of space points in golden track ", "fNsp_best"},
     { "gtrack_nhits", "Number of hits in golden track", "fNhits_best" },
-    { "gtrack_wirenum", "List of wirenum for hits in golden track", "fHits.THcDCHit.GetWireNum()" },
-    { "gtrack_time", "List of drift time for hits in golden track", "fHits.THcDCHit.GetTime()" },
-    { "gtrack_plane", "List of planes for hits in golden track", "fHits.THcDCHit.THcDriftChamberPlane.GetPlaneNum()" },
+    { "gtrack.wirenum", "List of wirenumber for hits in golden track", "fHitsGTrack.GetWireNum()" },
+    { "gtrack.time", "List of time for hits in golden track", "fHitsGTrack.GetTime()" },
+    { "gtrack.plane", "List of plane for hits in golden track", "fHitsGTrack.GetPlaneNum()" },
+    { "hits.wirenum", "List of wirenumber for hits in DC", "fHits.GetWireNum()" },
+    { "hits.time", "List of time for hits in DC", "fHits.GetTime()" },
+    { "hits.plane", "List of plane for hits in DC", "fHits.GetPlaneNum()" },
     { "residual", "Residuals", "fResiduals"},
     { "residualExclPlane", "Residuals", "fResidualsExclPlane"},
     { "wireHitDid","Wire did have  matched track hit", "fWire_hit_did"},
@@ -448,7 +449,6 @@ THcDC::~THcDC()
        ip != fChambers.end(); ++ip) delete *ip;
 
   delete fDCTracks;
-  delete fHits_best;
 }
 
 //_____________________________________________________________________________
@@ -516,7 +516,6 @@ void THcDC::ClearEvent()
     fWire_hit_did[i] = 1000.0;
     fWire_hit_should[i] = 1000.0;
   }
-  fHits_best->Clear();
 
   //  fTrackProj->Clear();
 }
@@ -528,6 +527,10 @@ Int_t THcDC::Decode( const THaEvData& evdata )
   // Pass hit list to the planes.
   // Load hits from planes into chamber objects
   ClearEvent();
+      fHits.clear();
+      fHits.reserve(40);
+      fHitsGTrack.clear();
+      fHitsGTrack.reserve(40);
   Int_t num_event = evdata.GetEvNum();
   if (fdebugprintrawdc ||fdebugprintdecodeddc || fdebuglinkstubs || fdebugtrackprint) cout << " event num = " << num_event << endl;
   // Get the Hall C style hitlist (fRawHitList) for this event
@@ -588,7 +591,11 @@ Int_t THcDC::CoarseTrack( TClonesArray& tracks )
   // Subtract starttimes from each plane hit
     for(Int_t ip=0;ip<fNPlanes;ip++) {
       fPlanes[ip]->SubtractStartTime();
-    }
+      TClonesArray* hitsarray = fPlanes[ip]->GetHits();
+      for(Int_t ihit=0;ihit<fPlanes[ip]->GetNHits();ihit++) {
+      fHits.push_back(static_cast<THcDCHit*>(hitsarray->At(ihit)));
+      }
+   }
   //
     // Let each chamber get its hits
     for(UInt_t ic=0;ic<fNChambers;ic++) {
@@ -663,10 +670,7 @@ void THcDC::SetFocalPlaneBestTrack(Int_t golden_track_index)
       fNhits_best=tr1->GetNHits();
          for (UInt_t ihit = 0; ihit < UInt_t (tr1->GetNHits()); ihit++) {
 	THcDCHit *hit = tr1->GetHit(ihit);
-        cout << ihit << endl;
-	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetWire((THcDCWire*) hit->GetWire());
-	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetTime(hit->GetTime());
-	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetRawTime(hit->GetRawTime());
+	fHitsGTrack.push_back(static_cast<THcDCHit*>(hit));
 	Int_t plane = hit->GetPlaneNum() - 1;
         fResiduals[plane] = tr1->GetResidual(plane);
         fResidualsExclPlane[plane] = tr1->GetResidualExclPlane(plane);

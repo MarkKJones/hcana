@@ -122,7 +122,6 @@ protected:
   Int_t fNSp;                   // Number of space points
   Int_t fNsp_best;                   // number of space points for golden track
   Int_t fNhits_best;                   // Number of hits for golden track
-  TClonesArray* fHits_best;
   Double_t* fResiduals;         //[fNPlanes] Array of residuals
   Double_t* fResidualsExclPlane;         //[fNPlanes] Array of residuals with plane excluded
   Double_t* fWire_hit_did;      //[fNPlanes]
@@ -196,6 +195,9 @@ protected:
 
   std::vector<THcDriftChamberPlane*> fPlanes; // List of plane objects
   std::vector<THcDriftChamber*> fChambers; // List of chamber objects
+
+  std::vector<THcDCHit*> fHitsGTrack;	/* All hits in golden track */
+  std::vector<THcDCHit*> fHits;	/* All hits in DC */
 
   TClonesArray*  fTrackProj;  // projection of track onto scintillator plane
                               // and estimated match to TOF paddle
