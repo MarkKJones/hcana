@@ -120,7 +120,9 @@ protected:
   Int_t fNthits;
   Int_t fN_True_RawHits;
   Int_t fNSp;                   // Number of space points
-  Int_t fNsp_best;                   // Number of space points for gloden track
+  Int_t fNsp_best;                   // number of space points for golden track
+  Int_t fNhits_best;                   // Number of hits for golden track
+  TClonesArray* fHits_best;
   Double_t* fResiduals;         //[fNPlanes] Array of residuals
   Double_t* fResidualsExclPlane;         //[fNPlanes] Array of residuals with plane excluded
   Double_t* fWire_hit_did;      //[fNPlanes]

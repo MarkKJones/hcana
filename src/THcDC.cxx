@@ -45,6 +45,8 @@ THcDC::THcDC(
 
   fNPlanes = 0;			// No planes until we make them
 
+  fHits_best = new TClonesArray("THcDCHit",100);
+  fHits_best = NULL;
   fXCenter = NULL;
   fYCenter = NULL;
   fMinHits = NULL;
@@ -414,6 +416,10 @@ Int_t THcDC::DefineVariables( EMode mode )
     { "sp1_id", " (golden track) ", "fSp1_ID_best"},
     { "sp2_id", " (golden track) ", "fSp2_ID_best"},
     { "gtrack_nsp", " Number of space points in golden track ", "fNsp_best"},
+    { "gtrack_nhits", "Number of hits in golden track", "fNhits_best" },
+    { "gtrack_wirenum", "List of wirenum for hits in golden track", "fHits.THcDCHit.GetWireNum()" },
+    { "gtrack_time", "List of drift time for hits in golden track", "fHits.THcDCHit.GetTime()" },
+    { "gtrack_plane", "List of planes for hits in golden track", "fHits.THcDCHit.THcDriftChamberPlane.GetPlaneNum()" },
     { "residual", "Residuals", "fResiduals"},
     { "residualExclPlane", "Residuals", "fResidualsExclPlane"},
     { "wireHitDid","Wire did have  matched track hit", "fWire_hit_did"},
@@ -442,6 +448,7 @@ THcDC::~THcDC()
        ip != fChambers.end(); ++ip) delete *ip;
 
   delete fDCTracks;
+  delete fHits_best;
 }
 
 //_____________________________________________________________________________
@@ -498,6 +505,7 @@ void THcDC::ClearEvent()
   fYp_fp_best=-10000.;
   fChisq_best=kBig;
   fNsp_best=0;
+  fNhits_best=0;
   for(UInt_t i=0;i<fNChambers;i++) {
     fChambers[i]->Clear();
   }
@@ -508,6 +516,7 @@ void THcDC::ClearEvent()
     fWire_hit_did[i] = 1000.0;
     fWire_hit_should[i] = 1000.0;
   }
+  fHits_best->Clear();
 
   //  fTrackProj->Clear();
 }
@@ -651,8 +660,13 @@ void THcDC::SetFocalPlaneBestTrack(Int_t golden_track_index)
       fSp2_ID_best=tr1->GetSp2_ID();
       fChisq_best=tr1->GetChisq();
       fNsp_best=tr1->GetNSpacePoints();
+      fNhits_best=tr1->GetNHits();
          for (UInt_t ihit = 0; ihit < UInt_t (tr1->GetNHits()); ihit++) {
 	THcDCHit *hit = tr1->GetHit(ihit);
+        cout << ihit << endl;
+	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetWire((THcDCWire*) hit->GetWire());
+	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetTime(hit->GetTime());
+	((THcDCHit*) fHits_best->ConstructedAt(ihit))->SetRawTime(hit->GetRawTime());
 	Int_t plane = hit->GetPlaneNum() - 1;
         fResiduals[plane] = tr1->GetResidual(plane);
         fResidualsExclPlane[plane] = tr1->GetResidualExclPlane(plane);
