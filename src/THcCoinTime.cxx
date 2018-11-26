@@ -170,8 +170,8 @@ Int_t THcCoinTime::DefineVariables( EMode mode )
     
     {"CoinTime_RAW_ROC1",    "ROC1 RAW Coincidence Time",  "fROC1_RAW_CoinTime"},
     {"CoinTime_RAW_ROC2",    "ROC2 RAW Coincidence Time",  "fROC2_RAW_CoinTime"},
-    {"DeltaSHMSPathLength",    "",  "DeltaSHMSpathLength"},
-    {"DeltaHMSPathLength",    "",  "DeltaHMSpathLength"},
+    {"DeltaSHMSPathLength",    "",  "DeltaSHMSpathLength (cm)"},
+    {"DeltaHMSPathLength",    "",  "DeltaHMSpathLength (cm)"},
     { 0 }
   };
 
@@ -247,7 +247,7 @@ Int_t THcCoinTime::Process( const THaEvData& evdata )
 
       DeltaSHMSpathLength = .11*shms_xptar*1000 +0.057*shms_dP/100.;
       DeltaHMSpathLength = -1.0*(12.462*hms_xpfp + 0.1138*hms_xpfp*hms_xfp - 0.0154*hms_xfp - 72.292*hms_xpfp*hms_xpfp - 0.0000544*hms_xfp*had_xfp - 116.52*hms_ypfp*hms_ypfp);
-      DeltaHMSpathLength = .11*hms_xptar*1000 +0.17*hms_dP/100.;
+      DeltaHMSpathLength = .12*hms_xptar*1000 +0.17*hms_dP/100.;
 
           // default assume SHMS is electron arm
 	  Double_t ElecPathLength=SHMScentralPathLen +  DeltaSHMSpathLength;
