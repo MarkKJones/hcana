@@ -46,7 +46,7 @@ public:
   Int_t GetPaddleNumber() const { return fPaddleNumber; }
   Double_t GetPaddleCenter() const { return fPaddleCenter; }
 
-  void SetCorrectedTimes(Double_t pos, Double_t neg, Double_t) {
+  void SetCorrectedTimes(Double_t pos, Double_t neg) {
     fPosCorrectedTime = pos; fNegCorrectedTime = neg;
   }
   void SetCorrectedTimes(Double_t pos, Double_t neg,

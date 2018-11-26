@@ -1087,8 +1087,7 @@ Int_t THcScintillatorPlane::ProcessHits(TClonesArray* rawhits, Int_t nexthit)
 	if (badcraw_neg) adc_neg=adcamp_neg;
 	if (badcraw_pos) adc_pos=adcamp_pos;
         ((THcHodoHit*) fHodoHits->At(fNScinHits))->SetPaddleCenter(fPosCenter[index]);
-	((THcHodoHit*) fHodoHits->At(fNScinHits))->SetCorrectedTimes(timec_pos,timec_neg,
-								     timec_pos,timec_neg,0.0);
+	((THcHodoHit*) fHodoHits->At(fNScinHits))->SetCorrectedTimes(timec_pos,timec_neg);
         ((THcHodoHit*) fHodoHits->At(fNScinHits))->SetNegADCpeak(adc_neg); // needed for new TWCOrr
 	((THcHodoHit*) fHodoHits->At(fNScinHits))->SetPosADCpeak(adc_pos); // needed for new TWCOrr
 	fGoodPosTdcTimeCorr.at(padnum-1) = timec_pos;
