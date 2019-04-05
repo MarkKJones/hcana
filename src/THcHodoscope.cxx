@@ -10,6 +10,7 @@ hodoscope array, not just one plane.
 */
 
 #include "THcSignalHit.h"
+#include "THcScintPlaneCluster.h"
 #include "THcShower.h"
 #include "THcCherenkov.h"
 #include "THcHallCSpectrometer.h"
@@ -229,6 +230,8 @@ Int_t THcHodoscope::ReadDatabase( const TDatime& date )
   prefix[1]='\0';
   strcpy(parname,prefix);
   strcat(parname,"scin_");
+  //
+  //
   //  Int_t plen=strlen(parname);
   // cout << " readdatabse hodo fnplanes = " << fNPlanes << endl;
 
@@ -520,6 +523,15 @@ Int_t THcHodoscope::ReadDatabase( const TDatime& date )
     fTofTolerance= 3.0;
     cout << "*** USING DEFAULT 3 NSEC WINDOW FOR FP NO_TRACK CALCULATIONS!! ***\n";
   }
+  //
+  fRatio_xpfp_to_xfp=0.00;
+  TString SHMS="p";
+  TString HMS="h";
+  TString test=prefix[0];
+  if (test==SHMS ) fRatio_xpfp_to_xfp=0.0018*0.66; // SHMS 
+  if (test == HMS ) fRatio_xpfp_to_xfp=0.0011; // HMS 
+  cout << " fRatio_xpfp_to_xfp= " << fRatio_xpfp_to_xfp << endl;
+  //
   fIsInit = true;
   return kOK;
 }
@@ -1513,7 +1525,7 @@ void THcHodoscope::TrackEffTest(void)
       if ( hit->GetTwoGoodTimes() ) {
 	if ( padnum==prev_padnum+1 ) {
 	  fClustSize[ip][fNClust[ip]-1]=fClustSize[ip][fNClust[ip]-1]+1;
-	  fClustPos[ip][fNClust[ip]-1]=fClustPos[ip][fNClust[ip]-1]+fPlanes[ip]->GetPosCenter(padnum-1)+ fPlanes[ip]->GetPosOffset();
+	  fClustPos[ip][fNClust[ip]-1]+=fPlanes[ip]->GetPosCenter(padnum-1)+ fPlanes[ip]->GetPosOffset();
 	   if (efftest_debug) cout << "Add to cluster  pl = " << ip+1 << " hit = " << iphit << " pad = " << padnum << " clus =  " << fNClust[ip] << " cl size = " << fClustSize[ip][fNClust[ip]-1] << " pos " << fPlanes[ip]->GetPosCenter(padnum-1)+ fPlanes[ip]->GetPosOffset() << endl;
 	} else {
 	  if (fNClust[ip]<MaxNClus) fNClust[ip]++;
@@ -1529,20 +1541,26 @@ void THcHodoscope::TrackEffTest(void)
   //
   Bool_t inside_bound[4][10];
   for(Int_t ip = 0; ip < fNumPlanesBetaCalc; ip++ ) {	 
+    fPlanes[ip]->SetNumberClusters(fNClust[ip]);
     for(Int_t ic = 0; ic <fNClust[ip] ; ic++ ) {
       fClustPos[ip][ic]=fClustPos[ip][ic]/fClustSize[ip][ic];
-      inside_bound[ip][ic] = fClustPos[ip][ic]>=PadPosLo[ip] &&  fClustPos[ip][ic]<=PadPosHi[ip];
+      if (ip==0) fClustPos[ip][ic]= fClustPos[0][ic]*(1+fRatio_xpfp_to_xfp*(fPlanes[2]->GetZpos()-fPlanes[0]->GetZpos())); // project X1 to X2 Z position
+      fPlanes[ip]->SetCluster(ic,fClustPos[ip][ic]);
+      fPlanes[ip]->SetClusterSize(ic,fClustSize[ip][ic]);
+     inside_bound[ip][ic] = fClustPos[ip][ic]>=PadPosLo[ip] &&  fClustPos[ip][ic]<=PadPosHi[ip];
       if (efftest_debug) cout << "plane = " << ip+1 << " Cluster = " << ic+1 << " size = " << fClustSize[ip][ic]<< " pos = " << fClustPos[ip][ic] << " inside = " << inside_bound[ip][ic] << " lo = " << PadPosLo[ip]<< " hi = " << PadPosHi[ip]<< endl;
     }
   }
   //
+  Int_t MaxClusterSize=3;
   Int_t good_for_track_test[4][10];
   Int_t sum_good_track_test[4]={0,0,0,0};
   Int_t num_good_plane_hit=0;
   for(Int_t ip = 0; ip < fNumPlanesBetaCalc; ip++ ) {
     for(Int_t ic = 0; ic <fNClust[ip] ; ic++ ) {
-      if (inside_bound[ip][ic] && fClustSize[ip][ic]<=2) {
-          good_for_track_test[ip][ic]=1;
+      if (inside_bound[ip][ic] && fClustSize[ip][ic]<=MaxClusterSize) {
+         fPlanes[ip]->SetClusterFlag(ic,1.);
+         good_for_track_test[ip][ic]=1;
 	  sum_good_track_test[ip]++;
 	  if (sum_good_track_test[ip]==1) num_good_plane_hit++;
       } else {
@@ -1554,8 +1572,8 @@ void THcHodoscope::TrackEffTest(void)
   }	 
   if (efftest_debug) cout << " number of planes hits = " << num_good_plane_hit << endl;
   //
-  Double_t trackeff_scint_ydiff_max= 10. ;
-  Double_t trackeff_scint_xdiff_max= 10. ;
+  Double_t trackeff_scint_ydiff_max= 20. ;
+  Double_t trackeff_scint_xdiff_max= 20. ;
   Bool_t xdiffTest=kFALSE;
   Bool_t ydiffTest=kFALSE;
   fGoodScinHits = 0;
@@ -1567,6 +1585,8 @@ void THcHodoscope::TrackEffTest(void)
     for(Int_t ic2 = 0; ic2 <fNClust[2] ; ic2++ ) {
       if (good_for_track_test[0][ic0] && good_for_track_test[2][ic2]) {
           xdiffTest= TMath::Abs(fClustPos[0][ic0]-fClustPos[2][ic2])<trackeff_scint_xdiff_max;
+          if (xdiffTest) fPlanes[0]->SetClusterUsedFlag(ic0,1.);
+          if (xdiffTest) fPlanes[2]->SetClusterUsedFlag(ic2,1.);
       }
     }
     }
@@ -1575,6 +1595,8 @@ void THcHodoscope::TrackEffTest(void)
     for(Int_t ic3 = 0; ic3 <fNClust[3] ; ic3++ ) {
        if (good_for_track_test[1][ic1] && good_for_track_test[3][ic3]) {
            ydiffTest= TMath::Abs(fClustPos[1][ic1]-fClustPos[3][ic3])<trackeff_scint_ydiff_max;
+          if (ydiffTest) fPlanes[1]->SetClusterUsedFlag(ic1,1.);
+          if (ydiffTest) fPlanes[3]->SetClusterUsedFlag(ic3,1.);
        }
     }
     }
