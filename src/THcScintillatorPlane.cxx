@@ -970,7 +970,7 @@ Int_t THcScintillatorPlane::ProcessHits(TClonesArray* rawhits, Int_t nexthit)
       ((THcSignalHit*) frNegADCPeds->ConstructedAt(nrNegADCHits++))->Set(padnum, pedestal);
     }
     //
-    if((btdcraw_pos && badcraw_pos) && (btdcraw_neg && badcraw_neg )) {
+    if((btdcraw_pos && badcraw_pos) || (btdcraw_neg && badcraw_neg )) {
       if (good_ielem_posadc != -1) {
 	//good adc multiplicity
 	fTotNumGoodPosAdcHits++;
@@ -1045,7 +1045,7 @@ Int_t THcScintillatorPlane::ProcessHits(TClonesArray* rawhits, Int_t nexthit)
       }
 
       // Do corrections if valid TDC on both ends of bar
-      if( (btdcraw_pos && btdcraw_neg) || (badcraw_pos && badcraw_neg) ) {
+      if( (btdcraw_pos && btdcraw_neg) && (badcraw_pos && badcraw_neg) ) {
 	// Do the pulse height correction to the time.  (Position dependent corrections later)
 	Double_t timec_pos, timec_neg;
 	if(fTofUsingInvAdc) {
