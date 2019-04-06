@@ -137,6 +137,7 @@ Int_t THcHallCSpectrometer::DefineVariables( EMode mode )
   fIsSetup = ( mode == kDefine );
   RVarDef vars[] = {
     { "tr.betachisq", "Chi2 of beta", "fTracks.THaTrack.GetBetaChi2()"},
+    { "tr.PruneSelect", "Prune Select ID", "fPruneSelect"},
     { "present", "Trigger Type includes this spectrometer", "fPresent"},
     { 0 }
   };
@@ -341,7 +342,7 @@ Int_t THcHallCSpectrometer::ReadDatabase( const TDatime& date )
   //
   
   
-  EnforcePruneLimits();
+  //EnforcePruneLimits();
 
 #ifdef WITH_DEBUG
   cout <<  "\n\n\nhodo planes = " <<  fNPlanes << endl;
@@ -480,7 +481,7 @@ Int_t THcHallCSpectrometer::FindVertices( TClonesArray& tracks )
     TransportToLab(track->GetP(),track->GetTTheta(),track->GetTPhi(),pvect_temp);
     track->SetPvect(pvect_temp);
   }
-
+  fPruneSelect=-1.;
   if (fHodo==0 || (( fSelUsingScin == 0 ) && ( fSelUsingPrune == 0 )) ) {
     BestTrackSimple();
   } else if (fHodo!=0 && fSelUsingPrune !=0) {
@@ -774,7 +775,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
       testTracks[ptrack] = static_cast<THaTrack*>( fTracks->At(ptrack) );
       if (!testTracks[ptrack]) return -1;
     }
-
+    fPruneSelect = 0;
+    Double_t PruneSelect=0;
     // ! Prune on xptar
     nGood = 0;
     for (Int_t ptrack = 0; ptrack < fNtracks; ptrack++ ){
@@ -790,7 +792,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
-
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
     // ! Prune on yptar
     nGood = 0;
     for (Int_t ptrack = 0; ptrack < fNtracks; ptrack++ ){
@@ -807,6 +810,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on ytar
     nGood = 0;
@@ -823,6 +828,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on delta
     nGood = 0;
@@ -839,6 +846,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on beta
     nGood = 0;
@@ -859,6 +868,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on deg. freedom for track chisq
     nGood = 0;
@@ -876,6 +887,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
       }
     }
 
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
     //!     Prune on num pmt hits
     nGood = 0;
     for (Int_t ptrack = 0; ptrack < fNtracks; ptrack++ ){
@@ -891,6 +904,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on beta chisqr
     nGood = 0;
@@ -909,6 +924,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on fptime
     nGood = 0;
@@ -926,6 +943,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on Y2 being hit
     nGood = 0;
@@ -942,6 +961,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Prune on X2 being hit
     nGood = 0;
@@ -958,6 +979,8 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	}
       }
     }
+    PruneSelect++;
+    if (nGood==1 && fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
 
     // !     Pick track with best chisq if more than one track passed prune tests
     Double_t chi2PerDeg = 0.;
@@ -970,7 +993,9 @@ Int_t THcHallCSpectrometer::BestTrackUsingPrune()
 	chi2Min = chi2PerDeg;
       }
     }
-    // Set index=0 for fGoodTrack 
+     PruneSelect++;
+    if (fPruneSelect ==0 && fNtracks>1) fPruneSelect=PruneSelect;
+   // Set index=0 for fGoodTrack 
     for (Int_t iitrack = 0; iitrack < fNtracks; iitrack++ ){
       THaTrack* aTrack = dynamic_cast<THaTrack*>( fTracks->At(iitrack) );
       aTrack->SetIndex(1);
