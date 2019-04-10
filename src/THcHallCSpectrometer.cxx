@@ -281,6 +281,15 @@ Int_t THcHallCSpectrometer::ReadDatabase( const TDatime& date )
   // Default values
   fSelUsingScin = 0;
   fSelUsingPrune = 0;
+  fPruneXp = .2;
+  fPruneYp = .2;
+  fPruneYtar = 20.;
+  fPruneDelta = 30.;
+  fPruneBeta = 30.;
+  fPruneDf= 1;
+  fPruneChiBeta= 100.;
+  fPruneNPMT= 6;
+  fPruneFpTime= 1000.;
   fPhi_lab = 0.;
   fSatCorr=0.;
   fMispointing_x=999.;
