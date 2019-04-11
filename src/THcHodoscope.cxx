@@ -1105,12 +1105,13 @@ Int_t THcHodoscope::CoarseProcess( TClonesArray& tracks )
 
 	  // Index to access the 2d arrays of paddle/scintillator properties
 	  Int_t fPIndex = GetScinIndex(ip,paddle);
+          Double_t betatrack = theTrack->GetP()/TMath::Sqrt(theTrack->GetP()*theTrack->GetP()+fPartMass*fPartMass);
           
 	  if ( TMath::Abs( scinCenter - scinTrnsCoord ) <
 	       ( fPlanes[ip]->GetSize() * 0.5 + fPlanes[ip]->GetHodoSlop() ) ){ // Line 293
 
 	    fTOFPInfo[ihhit].onTrack = kTRUE;
-	    Double_t zcor = zposition/(29.979*fBetaNominal)*
+	    Double_t zcor = zposition/(29.979*betatrack)*
 	      TMath::Sqrt(1. + theTrack->GetTheta()*theTrack->GetTheta()
 			  + theTrack->GetPhi()*theTrack->GetPhi());
 	    fTOFPInfo[ihhit].zcor = zcor;
