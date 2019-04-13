@@ -323,7 +323,6 @@ Int_t THcCoinTime::Process( const THaEvData& evdata )
 	  fROC2_ePosCoinTime = fROC2_RAW_CoinTime + sign*( elec_coinCorr - had_coinCorr_Positron) - eHad_CT_Offset;
 	  fTRIG1_ePosCoinTime = fTRIG1_RAW_CoinTime + sign*( elec_coinCorr - had_coinCorr_Positron) - eHad_CT_Offset ;	  
 	  fTRIG4_ePosCoinTime = fTRIG4_RAW_CoinTime + sign*( elec_coinCorr - had_coinCorr_Positron) - eHad_CT_Offset;
-
          
    
   
