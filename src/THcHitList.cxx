@@ -2,7 +2,7 @@
 /** \class THcHitList
     \ingroup Base
 
-\brief Builds a Hall C ENGx1INE style list of raw hits from raw data
+\brief Builds a Hall C ENGINE style list of raw hits from raw data
 
  Detectors that use hit lists need to inherit from this class
  as well as THaTrackingDetector or THaNonTrackingDetector
@@ -211,24 +211,32 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 	    if(fadc) {
 	      fFADCSlotMap[slot] = fadc;
 	    }
-	  }	    
+	  }
 	}
 	break;
       }
     }
   }
   if(fDisableSlipCorrection) fTISlot = -1;
-    
+
   UInt_t titime = 0;
   Bool_t TI_TRIGGER_TIME_FOUND = kFALSE;
   if(fTISlot>0) {
-    UInt_t FUDGE=7;
+    const UInt_t FUDGE = 7;
     if (evdata.GetNumHits(fTICrate, fTISlot, 2) > 0) {
-    TI_TRIGGER_TIME_FOUND = kTRUE;
-    titime = evdata.GetData(fTICrate, fTISlot, 2, 0)-FUDGE;
-    // Need to get the FADC time for all modules in this crate
-    // that have hits.  Make a map with these times.
-    fTrigTimeShiftMap.clear();
+      TI_TRIGGER_TIME_FOUND = kTRUE;
+      titime = evdata.GetData(fTICrate, fTISlot, 2, 0);
+      if( titime >= FUDGE )
+        titime -= FUDGE;
+      else {
+        Warning(Here("DecodeToHitList"), "Invalid TI time %u - %u < 0 "
+                                         " for crate/slot = %d/%d",
+                titime, FUDGE, fTICrate, fTISlot);
+        titime = 0;
+      }
+      // Need to get the FADC time for all modules in this crate
+      // that have hits.  Make a map with these times.
+      fTrigTimeShiftMap.clear();
     }
   }
 
@@ -240,7 +248,7 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 
   // Get the indexed reference times for this event
   for(Int_t i=0;i<fNRefIndex;i++) {
-    if(fRefIndexMaps[i].defined) {     
+    if(fRefIndexMaps[i].defined) {
       if(evdata.IsMultifunction(fRefIndexMaps[i].crate,fRefIndexMaps[i].slot)) { // Multifunction module (e.g. FADC)
 	// Make sure at least one pulse
   	UInt_t nrefhits = evdata.GetNumEvents(Decoder::kPulseTime,
@@ -250,7 +258,7 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 	Int_t timeshift=0;
 	if(fTISlot>0 && TI_TRIGGER_TIME_FOUND) {		// Get the trigger time for this module
 	  if(fTrigTimeShiftMap.find(fRefIndexMaps[i].slot)
-	     == fTrigTimeShiftMap.end()) { // 
+	     == fTrigTimeShiftMap.end()) { //
 	    if(fFADCSlotMap.find(fRefIndexMaps[i].slot) != fFADCSlotMap.end()) {
 	      fTrigTimeShiftMap[fRefIndexMaps[i].slot]
 		= fFADCSlotMap[fRefIndexMaps[i].slot]->GetTriggerTime() - titime;
@@ -285,7 +293,16 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 	      ref_fNSA = fPSE125->GetNSA(fRefIndexMaps[i].crate);
 	      ref_fNSB = fPSE125->GetNSB(fRefIndexMaps[i].crate);
  	      ref_fNPED = fPSE125->GetNPED(fRefIndexMaps[i].crate);
-  	      }
+	      // DJH 14 Sep 22 -- fudge for now until I fix 125 decode
+	      if (ref_fNSA == -1) ref_fNSA  = 20;
+	      if (ref_fNSB == -1) ref_fNSB  = 6;
+	      if (ref_fNPED == -1) ref_fNPED = 4;
+
+	    } else {
+	      ref_fNSA  = 20;
+	      ref_fNSB  = 6;
+	      ref_fNPED = 4;
+	    }
 	  // Set F250 parameters.
           refrawhit->SetF250Params(ref_fNSA, ref_fNSB, ref_fNPED);
 	    for (UInt_t isamp=0;isamp<nrefsamples;isamp++) {
@@ -342,7 +359,7 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
   }
   for ( UInt_t i=0; i < fdMap->GetSize(); i++ ) {
     THaDetMap::Module* d = fdMap->GetModule(i);
-    
+
     // Loop over all channels that have a hit.
     //    cout << "Crate/Slot: " << d->crate << "/" << d->slot << endl;
     Int_t plane = d->plane;
@@ -442,16 +459,23 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
       } else {			// This is a Flash ADC
 
         if (fPSE125) {
-	  if(!fHaveFADCInfo) {
+            if (!fHaveFADCInfo) {
 	    fNSA = fPSE125->GetNSA(d->crate);
 	    fNSB = fPSE125->GetNSB(d->crate);
 	    fNPED = fPSE125->GetNPED(d->crate);
+	      if (fNSA == -1) fNSA  = 20;
+	      if (fNSB == -1) fNSB  = 6;
+	      if (fNPED == -1) fNPED = 4;            
 	    fHaveFADCInfo = kTRUE;
-	  }
-	  // Set F250 parameters.
-          rawhit->SetF250Params(fNSA, fNSB, fNPED);
-        }
-	
+	    }
+        } else if (!fHaveFADCInfo) {
+	      fNSA  = 20;
+	      fNSB  = 6;
+	      fNPED = 4;
+	    fHaveFADCInfo = kTRUE;
+	}
+         rawhit->SetF250Params(fNSA, fNSB, fNPED);
+ 
 	// Copy the samples
 	UInt_t nsamples=evdata.GetNumEvents(Decoder::kSampleADC, d->crate, d->slot, chan);
 
@@ -467,7 +491,7 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 	Int_t timeshift=0;
 	if(fTISlot>0 && TI_TRIGGER_TIME_FOUND) {		// Get the trigger time for this module
 	  if(fTrigTimeShiftMap.find(d->slot)
-	     == fTrigTimeShiftMap.end()) { // 
+	     == fTrigTimeShiftMap.end()) { //
 	    if(fFADCSlotMap.find(d->slot) != fFADCSlotMap.end()) {
 	      fTrigTimeShiftMap[d->slot]
 		= fFADCSlotMap[d->slot]->GetTriggerTime() - titime;
@@ -496,7 +520,7 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
 	  timeshift=0;
 	  if(fTISlot>0 && TI_TRIGGER_TIME_FOUND) {		// Get the trigger time for this module
 	    if(fTrigTimeShiftMap.find(d->slot)
-	       == fTrigTimeShiftMap.end()) { // 
+	       == fTrigTimeShiftMap.end()) { //
 	      if(fFADCSlotMap.find(d->slot) != fFADCSlotMap.end()) {
 		fTrigTimeShiftMap[d->slot]
 		  = fFADCSlotMap[d->slot]->GetTriggerTime() - titime;
@@ -584,9 +608,9 @@ Int_t THcHitList::DecodeToHitList( const THaEvData& evdata, Bool_t suppresswarni
     }
   } else if ( fTISlot>0 && !TI_TRIGGER_TIME_FOUND) {
     cout << "TI Trigger Time Not found for event type = " << evdata.GetEvType() << " event num = " << evdata.GetEvNum() << " TI Crate = " <<  fTICrate << " TI Slot = " << fTISlot<< endl;
-   } 
-    
-#endif    
+   }
+
+#endif
   fRawHitList->Sort(fNRawHits);
 
   fNTDCRef_miss += (tdcref_miss ? 1 : 0);

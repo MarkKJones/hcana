@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(hcana VERSION 0.90 LANGUAGES CXX)
+project(hcana VERSION 0.95 LANGUAGES CXX)
 
 option(HCANA_BUILTIN_PODD "Use built-in Podd submodule (default: YES)" ON)
 
@@ -24,6 +24,9 @@ endif()
 set_compiler_flags("${ROOT_CXX_FLAGS}")
 set_diagnostic_flags(WALL WEXTRA)
 report_build_info()
+if(PODD_SET_RPATH)
+  set_install_rpath()
+endif()
 
 #----------------------------------------------------------------------------
 # Install in GNU-style directory layout
