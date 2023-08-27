@@ -209,7 +209,9 @@ THcRawAdcHit::THcRawAdcHit() :
   fNPedestalSamples(4), fNPeakSamples(9),
   fPeakPedestalRatio(1.0*fNPeakSamples/fNPedestalSamples),
   fSubsampleToTimeFactor(0.0625),fSampThreshold(10.),
-  fPed(0),fSampPed(0), fPulseInt(), fPulseAmp(), fPulseTime(), fSampPulseInt(), fSampPulseAmp(), fSampPulseTime(), fSample(),
+  fPed(0),fSampPed(0), fPulseInt(), fPulseAmp(), fPulseTime(), fSampPulseInt(), fSampPulseNSBInt(), 
+  fSampPulseNSAInt(),fSampPulseNumBeforePeak(),fSampPulseNumAfterPeak(),
+  fSampPulseAmp(), fSampPulseTime(), fSample(),
   fRefTime(0), fHasMulti(kFALSE), fHasRefTime(kFALSE), fNPulses(0), fNSampPulses(0), fNSamples(0)
 {}
 
@@ -224,6 +226,10 @@ THcRawAdcHit& THcRawAdcHit::operator=(const THcRawAdcHit& right) {
       fPulseAmp[i]  = right.fPulseAmp[i];
       fPulseTime[i] = right.fPulseTime[i];
       fSampPulseInt[i]  = right.fSampPulseInt[i];
+      fSampPulseNSBInt[i]  = right.fSampPulseNSBInt[i];
+      fSampPulseNSAInt[i]  = right.fSampPulseNSAInt[i];
+      fSampPulseNumBeforePeak[i]  = right.fSampPulseNumBeforePeak[i];
+      fSampPulseNumAfterPeak[i]  = right.fSampPulseNumAfterPeak[i];
       fSampPulseAmp[i]  = right.fSampPulseAmp[i];
       fSampPulseTime[i] = right.fSampPulseTime[i];
    }
@@ -252,6 +258,10 @@ void THcRawAdcHit::Clear(Option_t* opt) {
     fPulseAmp[i] = 0;
     fPulseTime[i] = 0;
     fSampPulseInt[i] = 0;
+   fSampPulseNSAInt[i] = 0;
+   fSampPulseNSBInt[i] = 0;
+   fSampPulseNumBeforePeak[i] = 0;
+   fSampPulseNumAfterPeak[i] = 0;
     fSampPulseAmp[i] = 0;
     fSampPulseTime[i] = 0;
   }
@@ -321,8 +331,15 @@ void THcRawAdcHit::SetSampIntTimePedestalPeak() {
   */
   fHasMulti = kTRUE;
   fSampPed = GetIntegral(0, fNPedestalSamples-1);
+  Int_t PedLast = GetIntegral(fNSamples-fNPedestalSamples, fNSamples-1);
+  Bool_t FADCerror = kFALSE;
+  if (PedLast < fSampPed) {
+        fSampPed = PedLast;
+        FADCerror = kTRUE;
+  }
   //
   Int_t NS=fNPedestalSamples-1;
+    //
   fNSampPulses = 0;
   if (fSampThreshold ==0) { // just want to get the pedestal for determining FADC threshold 
      fSampPulseInt[fNSampPulses] = GetIntegral(TMath::Max(NS-fNSB,0),TMath::Min((NS+fNSA-1),int(fNSamples-1)));
@@ -334,9 +351,6 @@ void THcRawAdcHit::SetSampIntTimePedestalPeak() {
     
   } else { 
   //
-  Bool_t FADCerror = kFALSE;
-  if (fNPulses==0) FADCerror = kTRUE;
-   if (FADCerror) fSampPed = GetIntegral(fNSamples-fNPedestalSamples, fNSamples-1);
   // if fNPulses==0 then pedestal region has a pulse above the FADC ROL threshold in mode9/10
   // if fNPulses!=0 then good mode 10 event
   while (NS < int(fNSamples) && fNSampPulses<fMaxNPulses) {
@@ -351,6 +365,8 @@ void THcRawAdcHit::SetSampIntTimePedestalPeak() {
         }
 	if (ns_found ==fNSAT) { // NS is The TC bin
 	  fSampPulseInt[fNSampPulses] = GetIntegral(TMath::Max(NS-fNSB,0),TMath::Min((NS+fNSA-1),int(fNSamples-1)));
+	  fSampPulseNSBInt[fNSampPulses] = GetIntegral(TMath::Max(NS-fNSB,0),TMath::Min((NS-1),int(fNSamples-1)));
+	  fSampPulseNSAInt[fNSampPulses] = GetIntegral(TMath::Max(NS,0),TMath::Min((NS+fNSA-1),int(fNSamples-1)));
 	  fNPeakSamples = TMath::Min((NS+fNSA-1),int(fNSamples-1)) - TMath::Max(NS-fNSB,0)+1;
           fPeakPedestalRatio= 1.0*fNPeakSamples/fNPedestalSamples;
 	  fSampPulseAmp[fNSampPulses] = 0;
@@ -379,7 +395,12 @@ void THcRawAdcHit::SetSampIntTimePedestalPeak() {
 	     fSampPulseAmp[fNSampPulses] = GetSampleRaw(NS);
 	     fSampPulseTime[fNSampPulses] = 64*NS;
 	  }
-	  //	  if (fNPulses ==0) 	  std::cout << " NsampPulse = " << fNSampPulses+1 << " " << fSampPulseInt[fNSampPulses] << " " << GetSampPulseInt(fNSampPulses) << " npeak = " <<PeakBin << " " << fSampPulseAmp[fNSampPulses] << " " << GetSampPulseAmp(fNSampPulses) << " " << fSampPulseTime[fNSampPulses]<< " " << GetSampPulseTime(fNSampPulses) << " Vmid = " << VMid  << " TC = " << NS << " TC+NSA-1 ="  << NS+fNSA << std::endl;
+	  fSampPulseNumBeforePeak[fNSampPulses] = PeakBin-NS;
+	  // find 10% fall off
+	  UInt_t nt_s=PeakBin;
+	  while (nt_s < fNSamples &&  GetSample(nt_s)> 0.1*GetSample(PeakBin)  ) nt_s++;
+	  fSampPulseNumAfterPeak[fNSampPulses] = nt_s-PeakBin+1;
+//	  	  if (fNPulses >0) 	  std::cout << " NsampPulse = " << fNSampPulses+1 << " " << fSampPulseInt[fNSampPulses] << " " << GetSampPulseInt(fNSampPulses) << " npeak = " <<PeakBin << " " << fSampPulseAmp[fNSampPulses] << " " << GetSampPulseAmp(fNSampPulses) << " " << fSampPulseTime[fNSampPulses]<< " " << GetSampPulseTime(fNSampPulses) << " Vmid = " << VMid  << " TC = " << NS << " TC+NSA-1 ="  << NS+fNSA << std::endl;
 	  fNSampPulses++; 
           NS=NS+fNSA;
 	} 
@@ -585,6 +606,22 @@ Double_t THcRawAdcHit::GetPulseInt(UInt_t iPulse) const {
 
 Double_t THcRawAdcHit::GetSampPulseInt(UInt_t iPulse) const {
   return (static_cast<Double_t>(fSampPulseInt[iPulse]) - static_cast<Double_t>(fSampPed)*fPeakPedestalRatio)*GetAdcTopC();
+}
+
+Double_t THcRawAdcHit::GetSampPulseNSBInt(UInt_t iPulse) const {
+  return (static_cast<Double_t>(fSampPulseNSBInt[iPulse]) - static_cast<Double_t>(float(fSampPed)/float(fNPedestalSamples))*fNSB)*GetAdcTopC();
+}
+
+Double_t THcRawAdcHit::GetSampPulseNSAInt(UInt_t iPulse) const {
+  return (static_cast<Double_t>(fSampPulseNSAInt[iPulse]) - static_cast<Double_t>(float(fSampPed)/float(fNPedestalSamples))*(fNSA))*GetAdcTopC();
+}
+ 
+Double_t THcRawAdcHit::GetSampPulseNumBeforePeak(UInt_t iPulse) const {
+  return static_cast<Double_t>(fSampPulseNumBeforePeak[iPulse]);
+}
+
+Double_t THcRawAdcHit::GetSampPulseNumAfterPeak(UInt_t iPulse) const {
+  return static_cast<Double_t>(fSampPulseNumAfterPeak[iPulse]);
 }
 
 Double_t THcRawAdcHit::GetPulseAmp(UInt_t iPulse) const {

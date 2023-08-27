@@ -61,6 +61,10 @@ class THcRawAdcHit : public TObject {
     Double_t GetPulseAmp(UInt_t iPulse=0) const;
     Double_t GetPulseTime(UInt_t iPulse=0) const;
     Double_t GetSampPulseInt(UInt_t iPulse=0) const;
+    Double_t GetSampPulseNumBeforePeak(UInt_t iPulse=0) const;
+    Double_t GetSampPulseNumAfterPeak(UInt_t iPulse=0) const;
+    Double_t GetSampPulseNSBInt(UInt_t iPulse=0) const;
+    Double_t GetSampPulseNSAInt(UInt_t iPulse=0) const;
     Double_t GetSampPulseAmp(UInt_t iPulse=0) const;
     Double_t GetSampPulseTime(UInt_t iPulse=0) const;
 
@@ -98,6 +102,10 @@ class THcRawAdcHit : public TObject {
     Int_t fPulseAmp[fMaxNPulses];
     Int_t fPulseTime[fMaxNPulses];
     Int_t fSampPulseInt[fMaxNPulses];
+    Int_t fSampPulseNSBInt[fMaxNPulses];
+    Int_t fSampPulseNSAInt[fMaxNPulses];
+    Int_t fSampPulseNumBeforePeak[fMaxNPulses];
+    Int_t fSampPulseNumAfterPeak[fMaxNPulses];
     Int_t fSampPulseAmp[fMaxNPulses];
     Int_t fSampPulseTime[fMaxNPulses];
     Int_t fSample[fMaxNSamples];
