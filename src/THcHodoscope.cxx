@@ -2243,8 +2243,8 @@ Int_t THcHodoscope::FineProcess( TClonesArray&  tracks  )
 	    pl_zpos+=fPlanes[ip]->GetZpos()+ (padind%2)*fPlanes[ip]->GetDzpos();
 	    num_good_pad++;
 	  }
+	  // cout << " itk = " << itrk << " pl = " << ip << " hit " << iphit << " " <<  fGoodFlags[itrk][ip][iphit].goodScinTime << " " <<   fGoodFlags[itrk][ip][iphit].goodTdcPos << " " << fGoodFlags[itrk][ip][iphit].goodTdcNeg << endl;
 	  ih++;
-	  //	  cout << ip << " " << iphit << " " <<  fGoodFlags[itrk][ip][iphit].goodScinTime << " " <<   fGoodFlags[itrk][ip][iphit].goodTdcPos << " " << fGoodFlags[itrk][ip][iphit].goodTdcNeg << endl;
 	}
 	hitDistance=kBig;
 	if (num_good_pad !=0 ) {

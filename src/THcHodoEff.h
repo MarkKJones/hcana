@@ -56,6 +56,7 @@ protected:
 
   Int_t fEffiTest;
   Int_t fNPlanes;
+  Int_t fHodoEffEventType;
   THcScintillatorPlane** fPlanes;
   Double_t* fPosZ;
   Double_t* fSpacing;
@@ -69,10 +70,23 @@ protected:
   Int_t* fStatTrk;
   Int_t* fStatTrkSum;
   Int_t* fStatAndSum;
+  TString fPrefix;
   Double_t* fStatAndEff;
+ Double_t* fStatAndEffError;
   Double_t fStatSlop;
+  Double_t* fStatSlopPerPlane;
   Double_t fHodoEff_CalEnergy_Cut;
   Double_t fMaxChisq;
+  Double_t* fTrack_Should_Xpos ; //[fNPlanes]
+  Double_t* fTrack_Should_Ypos ; //[fNPlanes]
+  Double_t* fTrack_Did_Xpos ; //[fNPlanes]
+  Double_t* fTrack_Did_Ypos ; //[fNPlanes]
+  Double_t* fTrack_Miss_Xpos ; //[fNPlanes]
+  Double_t* fTrack_Miss_Ypos ; //[fNPlanes]
+  Int_t fShould_hit_2x;
+  Int_t fDid_hit_2x;
+  Int_t fShould_hit_2y;
+  Int_t fDid_hit_2y;
   Double_t* fHodoSlop;
   Double_t fHodoEff_s1,fHodoEff_s2,fHodoEff_tof,fHodoEff_3_of_4,fHodoEff_4_of_4;
 
