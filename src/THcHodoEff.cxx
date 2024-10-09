@@ -38,6 +38,7 @@ THcHodoEff::~THcHodoEff()
 
   delete [] fPlanes; fPlanes = 0;
   delete [] fPosZ; fPosZ = 0;
+  delete [] fStatSlopPerPlane; fStatSlopPerPlane = 0;
   delete [] fSpacing; fSpacing = 0;
   delete [] fCenterFirst; fCenterFirst = 0;
   delete [] fNCounters; fNCounters = 0;
@@ -45,6 +46,13 @@ THcHodoEff::~THcHodoEff()
   delete [] fStatTrkSum; fStatTrkSum = 0;
   delete [] fStatAndSum; fStatAndSum = 0;
   delete [] fStatAndEff; fStatAndEff = 0;
+  delete [] fStatAndEffError; fStatAndEffError = 0;
+  delete [] fTrack_Should_Xpos ; fTrack_Should_Xpos  = 0;
+  delete [] fTrack_Should_Ypos ; fTrack_Should_Ypos  = 0;
+  delete [] fTrack_Did_Xpos ; fTrack_Did_Xpos  = 0;
+  delete [] fTrack_Did_Ypos ; fTrack_Did_Ypos  = 0;
+  delete [] fTrack_Miss_Xpos ; fTrack_Miss_Xpos  = 0;
+  delete [] fTrack_Miss_Ypos ; fTrack_Miss_Ypos  = 0;
 
   delete [] fHodoPosEffi; fHodoPosEffi = 0;
   delete [] fHodoNegEffi; fHodoNegEffi = 0;
@@ -107,7 +115,11 @@ Int_t THcHodoEff::End( THaRunBase* )
       fStatAndSum[ip]+=fHodoAndEffi[fHod->GetScinIndex(ip,ic)];
     }
     if (fStatTrkSum[ip] !=0) fStatAndEff[ip]=float(fStatAndSum[ip])/float(fStatTrkSum[ip]);
+    Double_t k=fStatAndSum[ip];
+    Double_t n=fStatTrkSum[ip];
+    fStatAndEffError[ip]=sqrt( (k+1)*(k+2)/(n+2)/(n+3) - (k+1)*(k+1)/(n+2)/(n+2) );
   }
+  //
   //
   Double_t     p1=fStatAndEff[0];
   Double_t     p2=fStatAndEff[1];
@@ -150,6 +162,7 @@ THaAnalysisObject::EStatus THcHodoEff::Init( const TDatime& run_time )
   cout << "THcHodoEff::Init Apparatus = " << fHod->GetName() <<
     " " <<
     (fHod->GetApparatus())->GetName() << endl;
+  fPrefix = ((fHod->GetApparatus())->GetName()[0]) ;
 
   return fStatus = kOK;
 }
@@ -161,8 +174,15 @@ Int_t THcHodoEff::ReadDatabase( const TDatime& date )
   // Get # of planes and their z positions here.
 
   fNPlanes = fHod->GetNPlanes();
+   fTrack_Should_Xpos = new Double_t[fNPlanes];
+   fTrack_Should_Ypos = new Double_t[fNPlanes];
+   fTrack_Did_Xpos = new Double_t[fNPlanes];
+   fTrack_Did_Ypos = new Double_t[fNPlanes];
+   fTrack_Miss_Xpos = new Double_t[fNPlanes];
+   fTrack_Miss_Ypos = new Double_t[fNPlanes];
   fPlanes = new THcScintillatorPlane* [fNPlanes];
   fPosZ = new Double_t[fNPlanes];
+  fStatSlopPerPlane = new Double_t[fNPlanes];
   fSpacing = new Double_t[fNPlanes];
   fCenterFirst = new Double_t[fNPlanes];
   fNCounters = new Int_t[fNPlanes];
@@ -170,12 +190,14 @@ Int_t THcHodoEff::ReadDatabase( const TDatime& date )
   fStatTrkSum = new Int_t[fNPlanes];
   fStatAndSum = new Int_t[fNPlanes];
   fStatAndEff = new Double_t[fNPlanes];
+  fStatAndEffError = new Double_t[fNPlanes];
 
   Int_t maxcountersperplane=0;
   for(Int_t ip=0;ip<fNPlanes;ip++) {
     fStatTrkSum[ip]=0.;
     fStatAndSum[ip]=0.;
     fStatAndEff[ip]=0.;
+    fStatAndEffError[ip]=0.;
     fPlanes[ip] = fHod->GetPlane(ip);
     fPosZ[ip] = fPlanes[ip]->GetZpos() + 0.5*fPlanes[ip]->GetDzpos();
     fSpacing[ip] = fPlanes[ip]->GetSpacing();
@@ -197,13 +219,26 @@ Int_t THcHodoEff::ReadDatabase( const TDatime& date )
   DBRequest list[]={
     {"stat_slop", &fStatSlop, kDouble},
     {"stat_maxchisq",&fMaxChisq, kDouble},
+    {"HodoEffEventType",&fHodoEffEventType, kInt,0,1},
     {"HodoEff_CalEnergy_Cut",&fHodoEff_CalEnergy_Cut, kDouble,0,1},
     {"hodo_slop", fHodoSlop, kDouble, (UInt_t)fNPlanes},
     {0}
   };
   fHodoEff_CalEnergy_Cut=0.050; // set default value
+  TString temp(prefix);
+  if (temp == "p") fHodoEffEventType = 1;
+  if (temp == "h") fHodoEffEventType = 2;
+  gHcParms->Define(Form("%sHodoEffEventType",  prefix), "Hodo eff event type",fHodoEffEventType);
   gHcParms->LoadParmValues((DBRequest*)&list,prefix);
-  cout << "\n\nTHcHodoEff::ReadDatabase nplanes=" << fHod->GetNPlanes() << endl;
+  for(Int_t ip=0;ip<fNPlanes;ip++) {
+    fStatSlopPerPlane[ip]=fStatSlop;
+  }
+   DBRequest list2[]={
+     {"StatSlopPerPlane", fStatSlopPerPlane , kDouble, (UInt_t)fNPlanes,1},
+    {0}
+  };
+  gHcParms->LoadParmValues((DBRequest*)&list2,prefix);
+//cout << "\n\nTHcHodoEff::ReadDatabase nplanes=" << fHod->GetNPlanes() << endl;
   // Setup statistics arrays
   // Better method to put this in?
   // These all need to be cleared in Begin
@@ -220,7 +255,7 @@ Int_t THcHodoEff::ReadDatabase( const TDatime& date )
 
   for(Int_t ip=0;ip<fNPlanes;ip++) {
 
-    cout << "Plane = " << ip + 1 << "    counters = " << fNCounters[ip] << endl;
+    //cout << "Plane = " << ip + 1 << "    counters = " << fNCounters[ip] << endl;
 
     fStatTrkDel[ip].resize(fNCounters[ip]);
     fStatAndHitDel[ip].resize(fNCounters[ip]);
@@ -251,7 +286,10 @@ Int_t THcHodoEff::ReadDatabase( const TDatime& date )
   gHcParms->Define(Form("%shodo_neg_eff[%d]",  prefix,totalpaddles), "Hodo negative effi",*fHodoNegEffi);
   gHcParms->Define(Form("%shodo_or_eff[%d]",   prefix,totalpaddles), "Hodo or effi",      *fHodoOrEffi);
   gHcParms->Define(Form("%shodo_and_eff[%d]",  prefix,totalpaddles), "Hodo and effi",     *fHodoAndEffi);
+  gHcParms->Define(Form("%shodo_plane_AND_sum[%d]",prefix,fNPlanes), "Hodo plane AND sum",  *fStatAndSum);
+  gHcParms->Define(Form("%shodo_plane_trk_sum[%d]",prefix,fNPlanes), "Hodo plane trk sum",  *fStatTrkSum);
   gHcParms->Define(Form("%shodo_plane_AND_eff[%d]",prefix,fNPlanes), "Hodo plane AND eff",  *fStatAndEff);
+  gHcParms->Define(Form("%shodo_plane_AND_eff_error[%d]",prefix,fNPlanes), "Hodo plane AND eff error",  *fStatAndEffError);
   gHcParms->Define(Form("%shodo_gold_hits[%d]",prefix,totalpaddles), "Hodo golden hits",  *fStatTrk);
   gHcParms->Define(Form("%shodo_s1XY_eff",prefix), "Efficiency for S1XY",fHodoEff_s1);
   gHcParms->Define(Form("%shodo_s2XY_eff",prefix), "Efficiency for S2XY",fHodoEff_s2);
@@ -276,7 +314,13 @@ Int_t THcHodoEff::DefineVariables( EMode mode )
     // Move these into THcHallCSpectrometer using track fTracks
     // {"effitestvar",    "efficiency test var",      "fEffiTest"},
     // {"goldhodposhit",    "pos pmt hit in hodo",      "fStatPosHit"},
-    { 0 }
+    {"Track_Should_Xpos","","fTrack_Should_Xpos"},
+    {"Track_Should_Ypos","","fTrack_Should_Ypos"},
+    {"Track_Did_Xpos","","fTrack_Did_Xpos"},
+    {"Track_Did_Ypos","","fTrack_Did_Ypos"},
+    {"Track_Miss_Xpos","","fTrack_Miss_Xpos"},
+    {"Track_Miss_Ypos","","fTrack_Miss_Ypos"},
+     { 0 }
   };
   return DefineVarsFromList( vars, mode );
   //  return kOK;
@@ -291,7 +335,18 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
 
   if( !IsOK() ) return -1;
 
-
+  for(Int_t ip=0;ip<fNPlanes;ip++) {
+  fTrack_Should_Xpos[ip] = kBig;
+  fTrack_Should_Ypos[ip] = kBig;
+  fTrack_Did_Xpos[ip] = kBig;
+  fTrack_Did_Ypos[ip] = kBig;
+  fTrack_Miss_Xpos[ip] = kBig;
+  fTrack_Miss_Ypos[ip] = kBig;
+  }
+  fShould_hit_2x = -1;
+  fDid_hit_2x = -1;
+   fShould_hit_2y = -1;
+  fDid_hit_2y = -1;
   // Project the golden track to each
   // plane.  Need to get track at Focal Plane, not tgt.
   //
@@ -311,7 +366,19 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
   Int_t checkHit[fNPlanes];
   // Bool_t goodTdcBothSides[fNPlanes];
   // Bool_t goodTdcOneSide[fNPlanes];
-
+  Int_t EventType =  evdata.GetEvType();
+  Bool_t goodEventType= kFALSE;
+  // assume evnettyep 1 or 2 or SHMS/HMS singles and 4 is coin eventtype
+  if (EventType <=2) {
+   if ( EventType == fHodoEffEventType || EventType == 4) goodEventType= kTRUE;
+  } else {
+    if ( EventType == fHodoEffEventType ) goodEventType= kTRUE;
+ }
+  //
+  Bool_t goodstarttime = fHod->IsStartTimeGood();
+  if (!goodstarttime) return 0;
+  if (!goodEventType) return 0;
+  //
   for(Int_t ip=0;ip<fNPlanes;ip++) {
     // Should really have plane object self identify as X or Y
     if(ip%2 == 0) {		// X Plane
@@ -331,7 +398,7 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
       hitDistance[ip] =  hitPos[ip] -(fCenterFirst[ip] -
 				      fSpacing[ip]*(hitCounter[ip]-1));
     }
-
+      
 
   }
 
@@ -365,18 +432,23 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
   for(Int_t ip=0;ip<fNPlanes;ip++) {
     // Int_t hitcounter = hitCounter[ip];
     Double_t dist = hitDistance[ip];
-    if(TMath::Abs(dist) <= fStatSlop &&
+    if(TMath::Abs(dist) <= fStatSlopPerPlane[ip] &&
        theTrack->GetChi2()/theTrack->GetNDoF() <= fMaxChisq &&
-       theTrack->GetEnergy() >= fHodoEff_CalEnergy_Cut )
+       theTrack->GetEnergy() >= fHodoEff_CalEnergy_Cut && goodstarttime && goodEventType)
       {
-	fStatTrk[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
-	// Double_t delta = theTrack->GetDp();
+  	fStatTrk[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
+           fTrack_Should_Xpos[ip]= theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip];
+           fTrack_Should_Ypos[ip]= theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip];
+	    // Double_t delta = theTrack->GetDp();
 	// Int_t idel = TMath::Floor(delta+10.0);
 	// Should
 	// if(idel >=0 && idel < 20) {
 	//   fStatTrkDel[ip][hitcounter][idel]++;
 	// }
 	// lookat[ip] = TRUE;
+      } else {
+	      //cout << " missed hit plane = " << ip << " counter = " << hitCounter[ip] << " dist = " << dist << " slop = " << fStatSlopPerPlane[ip] << endl;
+        
       }
     fHitPlane[ip] = 0;
   }
@@ -388,7 +460,7 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
   // record the hits as a "didhit" if track is near center of
   // scintillator, the chisqared of the track is good and it is the
   // first "didhit" in that plane.
-
+  //
   for(Int_t ip=0;ip<fNPlanes;ip++) {
     Int_t hitcounter = hitCounter[ip];
     if (hitcounter>=fNCounters[ip]) hitcounter=fNCounters[ip]-1;
@@ -401,28 +473,34 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
       Int_t counter = hit->GetPaddleNumber();
       // Finds first best hit
       Bool_t onTrack, goodScinTime, goodTdcNeg, goodTdcPos;
+      //cout << " track index = " << trackIndex << " ip = " << ip << " hit = " << ihit << endl;  
       fHod->GetFlags(trackIndex,ip,ihit,
 		     onTrack, goodScinTime, goodTdcNeg, goodTdcPos);
-      if(TMath::Abs(dist) <= fStatSlop &&
-	 TMath::Abs(hitcounter-counter) <= checkHit[ip] &&
-	 fHitPlane[ip] == 0 &&
+      if(TMath::Abs(dist) <= fStatSlopPerPlane[ip] &&
+	 	 TMath::Abs(hitcounter-counter) <= checkHit[ip] &&
+	 	 fHitPlane[ip] == 0 &&
 	 theTrack->GetChi2()/theTrack->GetNDoF() <= fMaxChisq &&
-	 theTrack->GetEnergy() >= fHodoEff_CalEnergy_Cut) {
+	 theTrack->GetEnergy() >= fHodoEff_CalEnergy_Cut && goodstarttime && goodEventType) {
 	fHitPlane[ip]++;
 
 	// Need to find out hgood_tdc_pos(igoldentrack,ihit) and neg
 	if(goodTdcPos) {
 	  if(goodTdcNeg) {	// Both fired
+           fTrack_Did_Xpos[ip]= theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip];
+           fTrack_Did_Ypos[ip]= theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip];
 	    fStatPosHit[ip][hitcounter]++;
 	    fStatNegHit[ip][hitcounter]++;
 	    fStatAndHit[ip][hitcounter]++;
 	    fStatOrHit[ip][hitcounter]++;
-
-	    fHodoPosEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
+ 	    fHodoPosEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
 	    fHodoNegEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
 	    fHodoAndEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
 	    fHodoOrEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
-
+            if (ip==2) fDid_hit_2x=hitcounter;
+           if (ip==3) fDid_hit_2y=hitcounter;
+	   //cout << " Did hit plane = " << ip << " counter = " << hitCounter[ip] << " dist = " << dist << " slop = " << fStatSlopPerPlane[ip] << " checkhit = " << checkHit[ip] << endl;
+	      //cout << " track x = " << theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip] << endl;
+	      //cout << " track y = " << theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip] << endl;
 	    // Double_t delta = theTrack->GetDp();
 	    // Int_t idel = TMath::Floor(delta+10.0);
 	    // if(idel >=0 && idel < 20) {
@@ -433,13 +511,31 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
 	    fStatOrHit[ip][hitcounter]++;
 	    fHodoPosEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
 	    fHodoOrEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
+            fTrack_Miss_Xpos[ip]= theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip];
+           fTrack_Miss_Ypos[ip]= theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip];
+	   //cout << " Else pos hit plane = " << ip << " counter = " << hitCounter[ip] << " dist = " << dist << " slop = " << fStatSlopPerPlane[ip] << " checkhit = " << checkHit[ip] << endl;
+	      //cout << " track x = " << theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip] << endl;
+	      //cout << " track y = " << theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip] << endl;
 	  }
 	} else if (goodTdcNeg) {
+	   //cout << " Else neg hit plane = " << ip << " counter = " << hitCounter[ip] << " dist = " << dist << " slop = " << fStatSlopPerPlane[ip] << " checkhit = " << checkHit[ip] << endl;
+	      //cout << " track x = " << theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip] << endl;
+	      //cout << " track y = " << theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip] << endl;
 	  fStatNegHit[ip][hitcounter]++;
 	  fStatOrHit[ip][hitcounter]++;
 	  fHodoNegEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
 	  fHodoOrEffi[fHod->GetScinIndex(ip,hitCounter[ip]-1)]++;
+          fTrack_Miss_Xpos[ip]= theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip];
+           fTrack_Miss_Ypos[ip]= theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip];
+	} else {
+           fTrack_Miss_Xpos[ip]= theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip];
+           fTrack_Miss_Ypos[ip]= theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip];
+	   //cout << "no tdc hit plane = " << ip << " counter = " << hitCounter[ip] << " dist = " << dist << " slop = " << fStatSlopPerPlane[ip] << " checkhit = " << checkHit[ip] << endl;
+	      //cout << " track x = " << theTrack->GetX() + theTrack->GetTheta()*fPosZ[ip] << endl;
+	      //cout << " track y = " << theTrack->GetY() + theTrack->GetPhi()*fPosZ[ip] << endl;
+	  
 	}
+	//
 
 	// Increment pos/neg/both fired.  Track independent, so
 	// no chisquared cut, but note that only scintillators on the
@@ -461,6 +557,8 @@ Int_t THcHodoEff::Process( const THaEvData& evdata )
 	// if(goodTdcPos || goodTdcNeg) {
 	//  goodTdcOneSide[ip] = kTRUE;
 	// }
+      } else {
+	//cout << " failed plane " << ip << " chechhit = " << TMath::Abs(hitcounter-counter) << " " << checkHit[ip] << endl; 
       }
 
       /*
